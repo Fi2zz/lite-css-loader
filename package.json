@@ -1,0 +1,7 @@
+{
+	"name": "css-url-loader",
+	"version": "1.0.0",
+	"main": "index.js",
+	"license": "MIT",
+	"description": "css loader module for webpack, dependencies free"
+}
