@@ -1,0 +1,45 @@
+/*  url-function  */
+
+@font-face {
+  font-family: "cube-icon";
+  src:
+		/* webpackIgnore:true cubeic.ttf */ url("../images/cubeic.ttf")
+      format("truetype"),
+    /* webpackIgnore:true cubeic.woff */ url(../images/cubeic.woff)
+      format("woff");
+}
+
+.case-url-no-webpack-ignore {
+  background-image: url(../images/test-image-3.jpg);
+}
+.case-url-no-webpack-ignore {
+  background-image: image-set(url(../images/test-image-3.jpg));
+}
+
+.case-quote-urls-no-webpack-ignore {
+  background-image: url("../images/test-image-4.jpg"),
+    /* webpackIgnore:true test-image-5 */ url("../images/test-image-5.jpg");
+}
+
+.case-unqoute-urls-no-webpack-ignore {
+  background-image: url(../images/test-image-6.jpg),
+    url(../images/test-image-7.jpg);
+}
+
+.case-url-webpack-ignore-breakinline {
+  background-image: url("../images/test-image-8.jpg"),
+    url("../images/test-image-9.jpg"), url(http://some.url/image.url),
+    url(http://some.url/image.url);
+}
+.case-url-webpack-ignore-breakinline {
+  background-image: url("../images/test-image-10.jpg");
+  background-image: url("../images/test-image-11.jpg");
+}
+
+.case-url-webpack-ignore-inline {
+  background-image: url("../images/test-image-12.jpg");
+}
+
+.case-datauri {
+  background-image: url("data:text/css;charset=utf-8;base64,YSB7DQogIGNvbG9yOiByZWQ7DQp9");
+}

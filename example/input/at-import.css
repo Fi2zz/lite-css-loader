@@ -1,0 +1,11 @@
+/* file test-at-import.css */
+
+@import "http://no-url-fn.css";
+@import "http://no-url-fn-with-layer.css" layer;
+@import "http://no-url-fn-with-layer-a.css" layer(a);
+@import "http://no-url-fn-wtth-layer-and-supports.css" layer(b)
+  supports(a: disabled);
+@import "http://no-url-fn-wtth-layer-and-supports-and-media.css" layer(b)
+  supports(a: disabled) screen and (width: 100px);
+@import "./test2.css" layer(node) supports(node: disabled) screen and
+  (width: 100px);

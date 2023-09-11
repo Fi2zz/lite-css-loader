@@ -1,8 +1,14 @@
 # This project is not intended to replace `css-loader`, it just provides one more implementation possibility
 
-[output-by-this-project.css](./example/output-by-this-project.css)
+# Example Input
 
-[output by webpack-contrib-css-loader.css](./example/output-by-this-project.css)
+[example/input/main.js](./example/input/main.js)
+
+# Example Output
+
+[example/output/output-by-this-project.css](./example/output-by-this-project.css)
+
+[example/output/output by webpack-contrib-css-loader.css](./example/output-by-this-project.css)
 
 # css-loader
 

@@ -1,0 +1,8 @@
+/* test-import  */
+
+@import "./import-with-supports-and-media.css";
+@import url("./import-with-supports-and-media.css");
+
+.test-import {
+  display: block;
+}

@@ -1,0 +1,19 @@
+/* http-import-no-quote */
+@import url(http://1.test-noquote-http-import);
+@import url(http://2.test-unnamed-layer-noquote-http-import) layer(d);
+@import url(http://3.test-named-layer-noquote-http-import) layer(named);
+@import url(http://4.test-named-layer-supports-noquote-http-import) layer(named)
+  supports(display: grid);
+@import url(http://5.test-named-layer-supports-media-noquote-http-import)
+  layer(named) supports(display: flex) screen and (max-width: 1024px);
+@import url(http://1.test-noquote-http-import);
+
+@import url("data:text/css;charset=utf-8;base64,YSB7DQogIGNvbG9yOiByZWQ7DQp9");
+@import url(./test-import.css);
+@import url(./test-import-2.css);
+@import "./test-import.css" layer;
+/* webpackIgnore:true @import */
+@import "./test-import.css" layer(named) supports(display: flex) screen and
+  (max-width: 101111px);
+@import "./test-import.css" layer(named2) supports(display: flex) screen and
+  (max-width: 101111px);

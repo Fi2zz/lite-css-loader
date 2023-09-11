@@ -1,0 +1,12 @@
+/* http-import-quote */
+@import url("http://test-quote-http-import");
+@import url("http://test-unnamed-layer-quote-http-import") layer;
+@import url("http://test-named-layer-quote-http-import") layer(named);
+@import url("http://test-named-layer-supports-quote-http-import") layer(named)
+  supports(d: s);
+@import url("http://test-named-layer-supports-media-quote-http-import")
+  layer(named) supports(d: s) screen and (max-width: 1024px);
+@import url("http://test-named-layer-supports-media-quote-http-import") layer
+  supports(d: s) screen and (max-width: 1024px);
+
+@import /* webpackIgnore:true */ "http://no-url-fn.css";

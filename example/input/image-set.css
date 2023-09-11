@@ -1,0 +1,82 @@
+.case-image-set-string-url {
+  /* webpackIgnore:true */
+  background-image: image-set("../images/test-image-30.jpg" type(image/jpg));
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    "../images/test-image-1.jpg" type(image/jpg),
+    "../images/test-image-28.jpg",
+    url("../images/test-image-27.jpg"),
+    url(../images/test-image-26.jpg)
+  );
+}
+
+.case-image-set-string-url {
+  background-image: image-set(
+    "../images/test-image-2.jpg",
+    "../images/test-image-3.jpg"
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    "../images/test-image-4.jpg",
+    url("../images/test-image-5.jpg")
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    "../images/test-image-6.jpg",
+    url("../images/test-image-7.jpg"),
+    "../images/test-image-8.jpg"
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    url("../images/test-image-9.jpg"),
+    url("../images/test-image-10.jpg"),
+    "../images/test-image-11.jpg",
+    "../images/test-image-12.jpg"
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set("../images/test-image-13.jpg" type(image/jpg));
+}
+
+.case-image-set-string-url {
+  background-image: image-set(
+    "../images/test-image-14.jpg" type(image/jpg),
+    "../images/test-image-15.jpg" type(image/jpg)
+  );
+}
+
+.case-image-set-string-url {
+  background-image: image-set(
+    url("../images/test-image-16.jpg") type(image/jpg),
+    "../images/test-image-17.jpg" type(image/jpg)
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    url("../images/test-image-18.jpg") type(image/jpg),
+    "../images/test-image-19.jpg" type(image/jpg)
+  );
+}
+
+.case-image-set-string-url {
+  background-image: image-set(
+    url("../images/test-image-20.jpg"),
+    url("../images/test-image-21.jpg")
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    /* webpackIgnore:true */ url(../images/test-image-22.jpg),
+    url(../images/test-image-23.jpg)
+  );
+}
+.case-image-set-string-url {
+  background-image: image-set(
+    url(../images/test-image-24.jpg) type(image/jpg),
+    url(../images/test-image-25.jpg)
+  );
+}
