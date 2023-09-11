@@ -6,9 +6,9 @@
 
 # Example Output
 
-[example/output/output-by-this-project.css](./example/output-by-this-project.css)
+[example/output/output-by-this-project.css](./example/output/output-by-this-project.css)
 
-[example/output/output by webpack-contrib-css-loader.css](./example/output-by-this-project.css)
+[example/output/output by webpack-contrib-css-loader.css](./example/output/output-by-this-project.css)
 
 # css-loader
 
