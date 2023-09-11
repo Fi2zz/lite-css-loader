@@ -4,56 +4,42 @@ const __IMAGE_SET__ = "image-set(";
 const __URL__ = "url(";
 const TYPE_IMPORT = "IMPORT";
 const TYPE_URL = "URL";
-const isDataURL = (url) => /data:/.test(url);
-
+const webpackIgnoreRE = /webpackIgnore:(\s)?true/;
+function isDataURL(url) {
+	return /data:/.test(url);
+}
+function sortMap(values) {
+	return values.sort((a, b) => a.index - b.index).map((node) => node.value);
+}
 function isHttp(url) {
 	return /http(s?)\:\/\//g.test(url);
 }
-function getImportCode(imports, requires) {
-	const _imports = imports
-		.filter((node) => !node.http)
-		.map(({ supports, media, layer, importName, importSource }) => {
-			return `
-			import ${importName} from ${importSource};
-			_import(${importName}, ${JSON.stringify({ supports, media, layer })});
-			`.trim();
-		});
-	const _requires = requires
-		.filter((node) => !node.http)
-		.map(
-			({ importName, importSource }) =>
-				`var ${importName} = new URL(${importSource}, import.meta.url);`
-		);
-	return _imports.concat(_requires);
+function createURL(importName, importSource) {
+	return `var ${importName} = new URL(${importSource}, import.meta.url);`;
+}
+function createImport(importName, importSource, features) {
+	const options = JSON.stringify(features);
+
+	const _import = (code) => `_import(${code},${options})`;
+	if (!importName) {
+		// @import(http://path/to/css)
+		const code = JSON.stringify(`@import url(${importSource});`);
+		return _import(`[[module.id,${code}]]`);
+	}
+	return `import ${importName} from ${importSource};${_import(importName)};`;
 }
 
 function getPreambleCode() {
 	const preamble = `
-	var  CSS_MODULE=[];
-	function wrappSupports(code, supports){
-		supports = supports.replace('supports(','').replace(')','');
-		return "@supports("+ supports +"){\\n"   + code +"\\n}"
-	}
-	function wrappMedia(code , media){
-		return "@media "+ media +"{\\n"   + code +"\\n}"
-	}
-	function wrappLayer(code, layer){
-		layer = layer.replace('layer(','').replace(')','');
-		return "@layer "+layer +"{\\n"   + code +"\\n}"
-	}
-	const _import =(modules , {supports , media, layer} ={})=>{
+	const CSS_MODULE=[];
+	const _import =  (modules,{supports,media,layer})=>{
 		for (let node  of modules){
-			const moduleId = node[0];
-			let code=node[1];
-			code =!layer ? code : wrappLayer(code, layer)
-			code =!media? code: wrappMedia(code, media)
-			code = !supports ? code: wrappSupports(code, supports)
-			CSS_MODULE.push([moduleId,code])
+			const [moduleId, code] = node
+			CSS_MODULE.push([moduleId,code,media, "", supports, layer])
 		}
 	}
-	const _push =(id, code , options )=> _import([[id, code]], options )
-	// Exports
-	export default  CSS_MODULE;
+	const _push =(id, code , options )=> _import([[id, code]], options||{})
+	export default CSS_MODULE;
 	`.trim();
 	return [preamble];
 }
@@ -76,106 +62,230 @@ function combineRequests(preRequest, url) {
 }
 const MODULE_REQUEST = /^[^?]*~/;
 
-const createRequestStringifier = (loader) => {
+function createRequestStringifier(loader) {
 	const preRequest = getPreRequester(loader);
 	const contextify = (url) => loader.utils.contextify(ctx, url);
 	const ctx = loader.context || loader.rootContext;
-	function stringifyRequest(url, type, http) {
-		if (http) return url;
-		if (type == TYPE_IMPORT) url = combineRequests(preRequest, url);
+	function stringifyRequest(url, shouldCombineRequest) {
+		if (shouldCombineRequest) url = combineRequests(preRequest, url);
 		url = contextify(url.replace(MODULE_REQUEST, ""));
 		return url;
 	}
-	return (url, type, http) => JSON.stringify(stringifyRequest(url, type, http));
-};
-const normalizeOptions = (raw) => {
-	return {
-		url: typeof raw.url == "boolean" ? raw.url : true,
-		import: typeof raw.import == "boolean" ? raw.import : true,
-	};
-};
-
-function getModuleCode(source, _urls, _imports) {
-	function replaces(code, replacements, skipHttp) {
-		for (const node of replacements) {
-			if (skipHttp && node.http) continue;
-			code = code.replace(node.replaceName, () => node.replaceValue);
-		}
-		return code;
-	}
-	// @import("some/path/file.css") -> ''
-	// @import("/some/path/file.css") -> ''
-	// @import("./some/path/file.css") -> ''
-	// @import("http://some.com/some.css") -> ''
-	source = replaces(source, _imports, false);
-	source = JSON.stringify(source);
-	//  background-image:url(http://some.com/some.jpg) -> bakckground-image:url(http://some.com/some.jpg)
-	//  background-image:url(./some.com/some.jpg) 	   ->  background-image:url(" + URL_index + ")
-	//  background-image:url(/some.com/some.jpg) 	   ->  background-image:url(" + URL_index + ")
-	//  background-image:url(some.com/some.jpg) 	   ->  background-image:url(" + URL_index + ")
-	source = replaces(source, _urls, true);
-	return [`_push(module.id,${source})`];
+	return (url, combineRequest) =>
+		JSON.stringify(stringifyRequest(url, combineRequest));
 }
 
-function loader(source) {
-	const loader = this;
-	const options = normalizeOptions(this.getOptions());
-	const [urls, atImports] = urlParser(source, options);
+function normalizeOptions(loader) {
+	rawOptions = loader.getOptions();
+
+	const url = typeof rawOptions.url === "boolean" ? rawOptions.url : true;
+	const _import =
+		typeof rawOptions.import === "boolean" ? rawOptions.import : true;
+
+	let urlFilter = (v) => true;
+	let importFilter = (v) => true;
+	if (url && typeof url == "object" && typeof url.filter == "function")
+		urlFilter = (value) => url.filter(value, loader.resourcePath);
+
+	if (
+		_import &&
+		typeof _import == "object" &&
+		typeof _import.filter == "function"
+	)
+		importFilter = (value, { media, supports, layer }) =>
+			_import.filter(value, media, loader.resourcePath, supports, layer);
+
 	const stringifyRequest = createRequestStringifier(loader);
-	const _urls = getReplacements(urls, stringifyRequest);
-	const _imports = getReplacements(atImports, stringifyRequest);
+
+	const sourceMap =
+		typeof rawOptions.sourceMap == "boolean"
+			? rawOptions.sourceMap
+			: loader.sourceMap;
+
+	return {
+		url,
+		import: _import,
+		sourceMap,
+		urlFilter,
+		importFilter,
+		stringifyRequest,
+	};
+}
+
+function applyReplacments(source, replacements) {
+	source = JSON.stringify(source);
+	for (const [importName, replacement, needQuote] of replacements) {
+		const value = needQuote ? `'${replacement}'` : replacement;
+		source = source.replace(new RegExp(importName), value);
+	}
+	return [`_push(module.id,${source})`];
+}
+function loader(source) {
+	const options = normalizeOptions(this);
+
+	let imports = [];
+	let urls = [];
+	let replacements = [];
+	function addImport(raw) {
+		const rules = readRules(raw);
+		let importSource = unquote(raw);
+		if (!options.importFilter(importSource, rules)) return false;
+		const needResolve = !isHttp(importSource) && !isDataURL(importSource);
+		let create = !needResolve;
+		let importName = null;
+		if (options.import && needResolve) {
+			create = true;
+			importName = `${TYPE_IMPORT}_${imports.length}`;
+			importSource = options.stringifyRequest(importSource, true);
+		}
+		if (create) {
+			const value = createImport(importName, importSource, rules);
+			imports.push({ value, index: imports.length });
+		}
+		return true;
+	}
+	function addURL(raw, needQuote) {
+		let importSource = unquote(raw);
+		if (!options.urlFilter(importSource)) return null;
+		const http = isHttp(importSource);
+		if (http) return null;
+		let importName = `${TYPE_URL}_${urls.length}`;
+		importSource = options.stringifyRequest(importSource);
+		if (options.url) {
+			replacements.push([importName, `"+ ${importName}+"`, needQuote]);
+			const value = createURL(importName, importSource);
+			urls.push({ value, index: urls.length });
+		}
+		return importName;
+	}
+
+	const _source = builder(source, { addImport, addURL });
 	const returns = []
 		.concat(getPreambleCode())
-		.concat(getImportCode(_imports, _urls))
-		.concat(getAtImportModuleCode(_imports))
-		.concat(getModuleCode(source, _urls, _imports));
+		.concat(sortMap(urls))
+		.concat(sortMap(imports))
+		.concat(applyReplacments(_source, replacements));
 	return returns.join("\n");
 }
 
-function getAtImportModuleCode(importsReplacements) {
-	function atImportTemplate({ url, supports, media, layer }) {
-		let tpl = `@import url(${url})`;
-		if (layer) tpl += `${layer}`;
-		if (supports) tpl += ` ${supports}`;
-		if (media) tpl += ` ${media}`;
-		tpl += ";";
-		tpl = JSON.stringify(tpl);
-		return `_push(module.id,  ${tpl})`;
+function unquote(string) {
+	let pos = -1;
+
+	let openPos = null;
+	let closePos = null;
+	let leftQuote = null;
+	let rightQuote = null;
+	while (pos++ < string.length) {
+		let ch = string.charCodeAt(pos);
+
+		// console.log({ ch });
+
+		if (ch == 40 && openPos == null) {
+			openPos = pos;
+			// pos++;
+		}
+
+		if (ch == 39 || ch == 34) {
+			if (leftQuote != null && rightQuote == null) {
+				rightQuote = pos;
+				break;
+			}
+			if (leftQuote == null) leftQuote = pos + 1;
+		}
+		if (ch == 41 && closePos == null) {
+			closePos = pos;
+			if (leftQuote == null) break;
+		}
 	}
-	return importsReplacements.filter((node) => node.http).map(atImportTemplate);
+
+	// remove `(` and  `)`
+	if (openPos != null && closePos != null)
+		string = string.substring(openPos + 1, closePos);
+	// remove `"` and `'`
+	if (leftQuote != null && rightQuote != null)
+		string = string.substring(leftQuote, rightQuote);
+	return string.trim();
 }
 
-function getReplacements(urls, noralizeRequest) {
-	return urls.map(([replaceName, type, url, supports, media, layer], index) => {
-		const http = isHttp(url);
-		const importName = `${type}_${index}`;
-		const replaceValue = type == TYPE_IMPORT ? "" : `" + ${importName} + "`;
-		const importSource = noralizeRequest(url, type, http || isDataURL(url));
-		return {
-			url,
-			http: http || isDataURL(url),
-			importName,
-			replaceName,
-			replaceValue,
-			importSource,
-			supports,
-			media,
-			layer,
-			type,
-		};
-	});
+function readRules(raw) {
+	let layer;
+	let supports;
+	let media;
+	const layerOpen = `layer(`;
+	const supportsOpen = "supports(";
+	const screenOpen = "screen ";
+	if (raw.includes("layer ") || raw.endsWith("layer;")) {
+		layer = "";
+	} else if (raw.includes(layerOpen)) {
+		const open = raw.indexOf(layerOpen);
+		if (open > 0) {
+			raw = raw.substring(open).trim();
+			const close = raw.indexOf(")");
+			layer = raw.substring(layerOpen.length, close);
+			raw = raw.substring(close + 1).trim();
+		}
+	}
+	if (raw.includes(supportsOpen)) {
+		const open = raw.indexOf(supportsOpen);
+		raw = raw.substring(open).trim();
+		const close = raw.indexOf(")");
+		supports = raw.substring(supportsOpen.length, close);
+		raw = raw.substring(close + 1).trim();
+	}
+	if (raw.includes(screenOpen)) {
+		const open = raw.indexOf(screenOpen);
+		media = raw.substring(open).replace(";", "").trim();
+	}
+	return { layer, supports, media };
 }
-
-function urlParser(source, options) {
-	if (!options.url && !options.import) return [[], []];
-
-	const RESupports = /supports\(.*.+\)(\s?)/g;
-	const REScreen = /screen(\s+)and(\s+)\(.*\)/;
-	const RELayer = /layer(\(.*\))?/;
-	const values = [];
-	const imports = [];
+function builder(input, { addImport, addURL }) {
+	let webpackIgnore = false;
+	let source = input;
 	let pos = -1;
 	let end = source.length;
+	const isImageSet = () => source.slice(pos, pos + 10) == __IMAGE_SET__;
+	const isURL = () => source.slice(pos, pos + 4) == __URL__;
+	const isAtImport = () => source.slice(pos, pos + 7) == __AT_IMPORT__;
+	function checkWebpackIgnore(startPos, endPos) {
+		webpackIgnore = false;
+		const slice = source.slice(startPos, endPos);
+		if (!webpackIgnoreRE.test(slice)) return;
+		const ch = source.charCodeAt(endPos);
+		webpackIgnore = ch == 10 || ch == 32;
+	}
+
+	function updateSource(startPos, endPos, { replacement, offset }) {
+		webpackIgnore = false;
+
+		let part1 = source.substring(0, startPos);
+		let part2 = source.substring(endPos, source.length);
+		// update source
+		source = part1 + replacement + part2;
+		pos = part1.length + offset;
+		// update end
+		end = source.length;
+	}
+	function read(type, startPos, endPos, needQuote) {
+		if (webpackIgnore) {
+			webpackIgnore = false;
+			return;
+		}
+		let replacement;
+		let offset = 0;
+		const raw = source.slice(startPos, endPos);
+		if (type == TYPE_IMPORT) {
+			const added = addImport(raw);
+			if (added) replacement = "\n";
+		} else if (type == TYPE_URL) {
+			replacement = addURL(raw, needQuote);
+		}
+		if (!replacement) return;
+		updateSource(startPos, endPos, {
+			offset,
+			replacement,
+		});
+	}
+
 	// 34 ""
 	// 39 '
 	// 105 i
@@ -183,185 +293,15 @@ function urlParser(source, options) {
 	// 117 u
 	// 40 (
 	// 41 )
-	const isImageSet = () => source.slice(pos, pos + 10) == __IMAGE_SET__;
-	const isURL = () => source.slice(pos, pos + 4) == __URL__;
-	const isAtImport = () => source.slice(pos, pos + 7) == __AT_IMPORT__;
-	const push = (s, e, t) => {
-		if (!options.import && t == TYPE_IMPORT) return;
-		if (!options.url && t == TYPE_URL) return;
-		if (t == TYPE_URL) values.push([s, e, t]);
-		if (t == TYPE_IMPORT) imports.push([s, e, t]);
-	};
-
-	function trimImport(value) {
-		const openIndex = value.indexOf("(");
-		const closeIndex = value.indexOf(")");
-		if (openIndex == -1 || closeIndex == -1) return value;
-		return value
-			.slice(openIndex + 1, closeIndex)
-			.replace(/^["']/, "")
-			.replace(/["']$/, "");
-	}
-
-	function extractSupports(value) {
-		if (!RESupports.test(value)) return null;
-		const result = value.match(RESupports);
-		if (!result) return null;
-		value = result[0].trim();
-		const openIndex = value.indexOf("supports(");
-		const closeIndex = value.indexOf(")") + 1;
-		if (closeIndex == 0 || openIndex < 0) return null;
-		let slice = value.slice(openIndex, closeIndex + 1);
-		return slice || null;
-	}
-	function doMatch(value, RE) {
-		if (!RE.test(value)) return null;
-		const result = value.match(RE);
-		return result ? result[0] : null;
-	}
-
-	function extractMedia(value) {
-		return doMatch(value, REScreen);
-	}
-
-	function extractLayer(value) {
-		return doMatch(value, RELayer);
-	}
-
-	function read([s, e, type]) {
-		const value = source.slice(s, e);
-		return [
-			value,
-			type,
-			trimImport(value),
-			extractSupports(value, RESupports),
-			extractMedia(value, REScreen),
-			extractLayer(value, RELayer),
-		];
-	}
-	function tryParseUrl() {
-		pos += 4;
-		let startPos = pos;
-		let ch = source.charCodeAt(pos);
-		if (ch == 34 || ch == 39) {
-			pos++;
-		} else if (ch == 47) {
-			//  url (/*comment */ "some/url/to/image")
-			ch = commentWhitespace();
-			/* / */
-			if (ch == 47) pos++;
-			ch = source.charCodeAt(pos);
-			if (ch == 34 || ch == 39) pos++;
-		}
-		startPos = pos;
-		while (pos++ < end) {
-			ch = source.charCodeAt(pos);
-			if (ch === 32 || (ch < 14 && ch > 8)) continue;
-			//  url (/*comment */ "some/url/to/image")
-			//  url ( "some/url/to/image" /*comment */)
-			if (ch == 47) {
-				commentWhitespace();
-				pos++;
-			}
-			// url(/image/url)
-			// url("/image/url")
-			// url('/image/url')
-			if (ch == 34 || ch == 39 || ch == 41) {
-				push(startPos, pos, TYPE_URL);
-				break;
-			}
-		}
-	}
-
-	/*
-	image-set("url/to/path/1","url/to/path/2")
-	image - set(
-		"url/to/path/1",
-		"url/to/path/2",
-		"url/to/path/2" type(image/jpg),
-		"url/to/path/2",
-		"url/to/path/2" type("image/jpg")
-	)
-	*/
-	function tryParseStringUrl() {
-		pos++;
-		let startPos = pos;
-		while (pos++ < end) {
-			let ch = source.charCodeAt(pos);
-			if (ch == 32 || (ch < 14 && ch > 8)) continue;
-			if (ch != 34 && ch != 39) continue;
-			push(startPos, pos, TYPE_URL);
-			let next_ch = source.charCodeAt(pos + 1);
-
-			// ,
-			if (next_ch == 44) {
-				pos++;
-				if (ch == 34 || ch == 39) stringLiteral(ch);
-				ch = commentWhitespace();
-				tryParseStringUrl();
-			}
-			//  whitespace
-			else if (next_ch == 32) {
-				ch = commentWhitespace();
-				if (ch == 34 || ch == 39) stringLiteral(ch);
-				pos++;
-				next_ch = source.charCodeAt(pos + 1);
-				if (next_ch == 32 || (next_ch < 14 && next_ch > 8)) pos++;
-				next_ch = commentWhitespace();
-				if (next_ch == 34 || next_ch == 39) tryParseStringUrl();
-			}
-			break;
-		}
-	}
-
-	let _unnamed_layer = "layer;";
-
-	function isUnamedLayer() {
-		return (
-			source.slice(pos - _unnamed_layer.length + 1, pos + 1) == _unnamed_layer
-		);
-	}
-
-	function parseAtImport() {
-		let startPos = pos;
-		pos += 7;
-		while (pos++ < end) {
-			let ch = source.charCodeAt(pos);
-			if (ch === 32 || (ch < 14 && ch > 8)) continue;
-
-			// @import url('some/css.css') layer;
-			if (ch == 59 && isUnamedLayer()) {
-				push(startPos, pos + 1, TYPE_IMPORT);
-				break;
-			}
-			// @import url('some/css.css');
-			// @import url('some/css.css') layer(some-layer);
-			// @import url('some/css.css') screen and (max-width: 1200px);
-			// @import url('some/css.css') supports(display: grid);
-			// @import url('some/css.css') supports(display: grid) screen and (max-width: 1200px);
-			if (ch == 41 && source.charCodeAt(pos + 1) == 59) {
-				pos++;
-				push(startPos, pos + 1, TYPE_IMPORT);
-				break;
-			}
-		}
-	}
-	function parseImageSet() {
-		pos += 10;
-		let ch = commentWhitespace();
-		//  image-set(url(url/to/image))
-		if (ch == 117) tryParseUrl();
-		//  image-set("url/to/image")
-		else if (ch == 34 || ch == 39) tryParseStringUrl();
-	}
 
 	function main() {
 		while (pos++ < end) {
 			let ch = source.charCodeAt(pos);
 			if (ch === 32 || (ch < 14 && ch > 8)) continue;
 			switch (ch) {
+				// /
 				case 47:
-					blockComment();
+					checkComment(ch);
 					break;
 				//  @import
 				case 64:
@@ -369,7 +309,7 @@ function urlParser(source, options) {
 					break;
 				// url
 				case 117:
-					if (isURL()) tryParseUrl();
+					if (isURL()) parseURL(4, false);
 					break;
 				//  105 -> i
 				//  image-set()
@@ -379,12 +319,139 @@ function urlParser(source, options) {
 					break;
 			}
 		}
-		return [values.map(read), imports.map(read)];
+		return source;
 	}
 	return main();
+	function parseURL(forward = 4, needQuote) {
+		let ch = source.charCodeAt(pos);
+		pos += forward;
+		let startPos = pos;
+		ch = source.charCodeAt(pos);
+		if (ch == 34 || ch == 39) pos++;
+		startPos = pos;
+		while (pos++ < end) {
+			ch = source.charCodeAt(pos);
+			if (ch === 32 || (ch < 14 && ch > 8)) continue;
+
+			// image-set("image/path")
+			// image-set(url("image/path"))
+			// url("/image/url")
+			// url('/image/url')
+			if (ch == 34 || ch == 39) {
+				read(TYPE_URL, startPos - 1, pos + 1, needQuote);
+				break;
+			}
+			// image-set(url(image/path))
+			// url(/image/url)
+			if (ch == 41) {
+				read(TYPE_URL, startPos, pos, false);
+				break;
+			}
+		}
+	}
+
+	function readBreakOfLine() {
+		while (pos++ < end) {
+			ch = source.charCodeAt(pos);
+			if (ch == 32) continue;
+			if (ch < 14 && ch > 8) continue;
+			if (ch == 59) {
+				let next_ch = source.charCodeAt(pos + 1);
+				if (next_ch == 10) {
+					pos += 1;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	function parseAtImport() {
+		let startPos = pos;
+		pos += 7;
+		let ch = commentWhitespace();
+		checkComment(ch);
+		if (ch != 117 && ch != 34 && ch != 39) return;
+		const _isURL = isURL();
+		const _stringLiteral = ch == 34 || ch == 39;
+		const shouldRead = _isURL || _stringLiteral;
+		if (!shouldRead) return;
+		if (_stringLiteral) stringLiteral(ch);
+		const isBOL = readBreakOfLine();
+		if (!isBOL) return;
+		// @import url(path/to/css);
+		// @import url(path/to/css) layer;
+		// @import url(path/to/css) layer(named);
+		// @import url(path/to/css) layer(named) supports(feature);
+		// @import url(path/to/css) layer(named) supports(feature) screen and (max-width:any);
+
+		// @import url("path/to/css");
+		// @import url("path/to/css") layer;
+		// @import url("path/to/css") layer(named);
+		// @import url("path/to/css") layer(named) supports(feature);
+		// @import url("path/to/css") layer(named) supports(feature) screen and (max-width:any);
+
+		// @import "path/to/css";
+		// @import "path/to/css" layer;
+		// @import "path/to/css" layer(named);
+		// @import "path/to/css" layer(named) supports(feature);
+		// @import "path/to/css" layer(named) supports(feature) screen and (max-width:any);
+		read(TYPE_IMPORT, startPos, pos);
+	}
+
+	function checkComment(ch) {
+		if (ch !== 47) return;
+		if (source.charCodeAt(pos + 1) != 42) return;
+		blockComment();
+	}
+
+	/*
+	image-set("url/to/path/1","url/to/path/2")
+	image-set(url(url/to/path/1),url("url/to/path/2"))
+	image-set(url(url/to/path/1) type(mime-type),url("url/to/path/2") type(mime-type))
+	image - set(
+		"url/to/path/1",
+		"url/to/path/2",
+		"url/to/path/2" type(image/jpg),
+		"url/to/path/2",
+		"url/to/path/2" type("image/jpg")
+	)
+	*/
+	function parseImageSet() {
+		pos += 10;
+		let ch = commentWhitespace();
+		checkComment(ch);
+		if (ch == 34 || ch == 39) parseURL(0, true);
+		if (ch == 117 && isURL()) parseURL(4, false);
+		while (pos++ < end) {
+			let ch = source.charCodeAt(pos);
+			if (ch == 32 || (ch < 14 && ch > 8)) continue;
+			checkComment(ch);
+			if (ch == 34 || ch == 39) parseURL(0, true);
+			if (ch == 117 && isURL()) parseURL(4, false);
+		}
+	}
+
+	// css only have block comment
+	function blockComment() {
+		let startPos = pos;
+		pos++;
+		while (pos++ < end) {
+			const ch = source.charCodeAt(pos);
+			if (ch === 42 /***/ && source.charCodeAt(pos + 1) === 47 /*/*/) {
+				pos++;
+				//  /* webpackIgnore:true */
+				checkWebpackIgnore(startPos, pos + 1);
+				return;
+			}
+		}
+	}
+
 	// Ported from es-module-lexer
+	function isBrOrWs(ch) {
+		return (ch > 8 && ch < 14) || ch === 32 || ch === 160;
+	}
 	function commentWhitespace() {
-		const isBrOrWs = (ch) => (ch > 8 && ch < 14) || ch === 32 || ch === 160;
 		let ch;
 		do {
 			ch = source.charCodeAt(pos);
@@ -396,19 +463,6 @@ function urlParser(source, options) {
 		} while (pos++ < end);
 		return ch;
 	}
-	// css only have block comment
-	function blockComment() {
-		pos++;
-		while (pos++ < end) {
-			const ch = source.charCodeAt(pos);
-			if (ch === 42 /***/ && source.charCodeAt(pos + 1) === 47 /*/*/) {
-				pos++;
-				return;
-			}
-		}
-	}
-	//  backgrond-image: url("image/url")
-	//  @import url("css/url")
 	function stringLiteral(quote) {
 		while (pos++ < end) {
 			let ch = source.charCodeAt(pos);
@@ -416,7 +470,7 @@ function urlParser(source, options) {
 			if (ch === 92 /*\*/) {
 				ch = source.charCodeAt(++pos);
 				if (ch === 13 /*\r*/ && source.charCodeAt(pos + 1) === 10 /*\n*/) pos++;
-			} else if (ch === 13 /*\r*/ || ch === 10 /*\n*/) break;
+			} else if (ch == 13 || ch == 10) break;
 		}
 	}
 }
