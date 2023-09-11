@@ -1,12 +1,12 @@
-
 # This project is not intended to replace `css-loader`, it just provides one more implementation possibility
 
+[output-by-this-project.css](./example/output-by-this-project.css)
+
+[output by webpack-contrib-css-loader.css](./example/output-by-this-project.css)
 
 # css-loader
 
 The `css-loader` interprets `@import` and `url()` like `import/require()` and will resolve them.
-
-
 
 For example:
 

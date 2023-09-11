@@ -1,0 +1,246 @@
+@import url(http://1.test-noquote-http-import);
+@import url(http://2.test-unnamed-layer-noquote-http-import);
+@import url(http://3.test-named-layer-noquote-http-import);
+@import url(http://4.test-named-layer-supports-noquote-http-import);
+@import url(http://5.test-named-layer-supports-media-noquote-http-import) screen
+	and (max-width: 1024px);
+@import url(http://1.test-noquote-http-import);
+@import url(data:text/css;charset=utf-8;base64,YSB7DQogIGNvbG9yOiByZWQ7DQp9);
+@import url(http://test-quote-http-import);
+@import url(http://test-unnamed-layer-quote-http-import);
+@import url(http://test-named-layer-quote-http-import);
+@import url(http://test-named-layer-supports-quote-http-import);
+@import url(http://test-named-layer-supports-media-quote-http-import) screen and
+	(max-width: 1024px);
+@import url(http://test-named-layer-supports-media-quote-http-import) screen and
+	(max-width: 1024px);
+@import url(http://no-url-fn.css);
+@import url(http://no-url-fn-with-layer.css);
+@import url(http://no-url-fn-with-layer-a.css);
+@import url(http://no-url-fn-wtth-layer-and-supports.css);
+@import url(http://no-url-fn-wtth-layer-and-supports-and-media.css) screen and
+	(width: 100px);
+.case-image-set-string-url {
+	/* webpackIgnore:true */
+	background-image: image-set("../images/test-image-30.jpg" type(image/jpg));
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		"/output/assets-test-image-1.jpg" type(image/jpg),
+		"/output/assets-test-image-1.jpg",
+		url(/output/assets-test-image-1.jpg),
+		url(/output/assets-test-image-1.jpg)
+	);
+}
+
+.case-image-set-string-url {
+	background-image: image-set(
+		"/output/assets-test-image-1.jpg",
+		"/output/assets-test-image-1.jpg"
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		"/output/assets-test-image-1.jpg",
+		url(/output/assets-test-image-1.jpg)
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		"/output/assets-test-image-1.jpg",
+		url(/output/assets-test-image-1.jpg),
+		"/output/assets-test-image-1.jpg"
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		url(/output/assets-test-image-1.jpg),
+		url(/output/assets-test-image-1.jpg),
+		"/output/assets-test-image-1.jpg",
+		"/output/assets-test-image-1.jpg"
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		"/output/assets-test-image-1.jpg" type(image/jpg)
+	);
+}
+
+.case-image-set-string-url {
+	background-image: image-set(
+		"/output/assets-test-image-1.jpg" type(image/jpg),
+		"/output/assets-test-image-1.jpg" type(image/jpg)
+	);
+}
+
+.case-image-set-string-url {
+	background-image: image-set(
+		url(/output/assets-test-image-1.jpg) type(image/jpg),
+		"/output/assets-test-image-1.jpg" type(image/jpg)
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		url(/output/assets-test-image-1.jpg) type(image/jpg),
+		"/output/assets-test-image-1.jpg" type(image/jpg)
+	);
+}
+
+.case-image-set-string-url {
+	background-image: image-set(
+		url(/output/assets-test-image-1.jpg),
+		url(/output/assets-test-image-1.jpg)
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		/* webpackIgnore:true */ url(../images/test-image-22.jpg),
+		url(/output/assets-test-image-1.jpg)
+	);
+}
+.case-image-set-string-url {
+	background-image: image-set(
+		url(/output/assets-test-image-1.jpg) type(image/jpg),
+		url(/output/assets-test-image-1.jpg)
+	);
+}
+
+/*  url-function  */
+
+@font-face {
+	font-family: "cube-icon";
+	src:
+		/* webpackIgnore:true cubeic.ttf */
+		url("../images/cubeic.ttf") format("truetype"),
+		/* webpackIgnore:true cubeic.woff */ url(../images/cubeic.woff)
+			format("woff");
+}
+
+.case-url-no-webpack-ignore {
+	background-image: url(/output/assets-test-image-1.jpg);
+}
+.case-url-no-webpack-ignore {
+	background-image: image-set(url(/output/assets-test-image-1.jpg));
+}
+
+.case-quote-urls-no-webpack-ignore {
+	background-image:
+		url(/output/assets-test-image-1.jpg),
+		/* webpackIgnore:true test-image-5 */ url("../images/test-image-5.jpg");
+}
+
+.case-unqoute-urls-no-webpack-ignore {
+	background-image: url(/output/assets-test-image-1.jpg),
+		url(/output/assets-test-image-1.jpg);
+}
+
+.case-url-webpack-ignore-breakinline {
+	background-image: url(/output/assets-test-image-1.jpg),
+		url(/output/assets-test-image-1.jpg), url(http://some.url/image.url),
+		url(http://some.url/image.url);
+}
+.case-url-webpack-ignore-breakinline {
+	background-image: url(/output/assets-test-image-1.jpg);
+	background-image: url(/output/assets-test-image-1.jpg);
+}
+
+.case-url-webpack-ignore-inline {
+	background-image: url(/output/assets-test-image-1.jpg);
+}
+
+.case-datauri {
+	background-image: url(data:text/css;charset=utf-8;base64,YSB7DQogIGNvbG9yOiByZWQ7DQp9);
+}
+
+/* import  with supports and media */
+div {
+	display: block;
+}
+
+/* import  with supports and media */
+div {
+	display: block;
+}
+
+/* test-import  */
+
+.test-import {
+	display: block;
+}
+
+/* test import 2 */
+div::before {
+	content: "Test Import 2";
+}
+
+@layer {
+	/* import  with supports and media */
+	div {
+		display: block;
+	}
+}
+@layer {
+	/* import  with supports and media */
+	div {
+		display: block;
+	}
+}
+@layer {
+	/* test-import  */
+
+	.test-import {
+		display: block;
+	}
+}
+@supports (display: flex) {
+	@media screen and (max-width: 101111px) {
+		@layer named2 {
+			/* import  with supports and media */
+			div {
+				display: block;
+			}
+		}
+	}
+}
+@supports (display: flex) {
+	@media screen and (max-width: 101111px) {
+		@layer named2 {
+			/* import  with supports and media */
+			div {
+				display: block;
+			}
+		}
+	}
+}
+@supports (display: flex) {
+	@media screen and (max-width: 101111px) {
+		@layer named2 {
+			/* test-import  */
+
+			.test-import {
+				display: block;
+			}
+		}
+	}
+}
+/* http-import-no-quote */
+
+/* webpackIgnore:true @import */
+@import "./test-import.css" layer(named) supports(display: flex) screen and
+	(max-width: 101111px);
+
+/* http-import-quote */
+
+@import /* webpackIgnore:true */ "http://no-url-fn.css";
+
+@supports (node: disabled) {
+	@media screen and (width: 100px) {
+		@layer node {
+			/* file test2.css */
+			.test2.css::before {
+				content: "test-at-import";
+			}
+		}
+	}
+}
+/* file test-at-import.css */
